@@ -1,0 +1,94 @@
+/* --- TOPBAR & DROPDOWN STYLES --- */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-content {
+  display: none;
+  position: absolute;
+  background-color: #333;
+  min-width: 140px; /* Slightly wider for better text fit */
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.4);
+  z-index: 1000; /* Increased to stay above the Monaco Editor */
+  border-radius: 4px;
+  top: 100%;
+  left: 0;
+  border: 1px solid #444;
+}
+
+.dropdown:hover .dropdown-content {
+  display: block;
+}
+
+.dropdown-content button {
+  color: white;
+  padding: 10px 15px;
+  text-decoration: none;
+  display: block;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s;
+}
+
+.dropdown-content button:hover {
+  background-color: #444;
+  color: #61dafb;
+}
+
+.nav-btn {
+  background: #444;
+  color: white;
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover {
+  background: #555;
+}
+
+/* --- REMOTE CURSOR / COLLABORATION STYLES --- */
+/* Highlights the entire line for the teammate */
+.remote-cursor-line {
+    background: rgba(97, 218, 251, 0.15) !important;
+    border-left: 3px solid #61dafb !important;
+}
+
+/* The small bar/glyph in the line-number gutter */
+.remote-cursor-glyph {
+    background: #61dafb !important;
+    width: 4px !important;
+    margin-left: 2px;
+    border-radius: 2px;
+}/* Unique color for the Save button to make it stand out */
+.save-btn-colored {
+    background: #2e7d32 !important; /* Elegant Forest Green */
+    border: 1px solid #388e3c !important;
+    font-weight: bold;
+}
+
+.save-btn-colored:hover {
+    background: #388e3c !important;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+
+/* Ensure the Theme box looks consistent with buttons */
+.theme-box {
+  
+    transition: all 0.2s ease;
+}
+
+.theme-box:hover {
+    border-color: #61dafb;
+}
