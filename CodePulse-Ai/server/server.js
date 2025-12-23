@@ -19,8 +19,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: { 
         // Replace with your Vercel URL once deployed
-        origin: ["http://localhost:3000"],
-        methods: ["GET", "POST"]
+origin: ["http://localhost:3000", "https://codepulse-ai-theta.vercel.app"]    
+    methods: ["GET", "POST"]
     }
 });
 
@@ -114,3 +114,4 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
