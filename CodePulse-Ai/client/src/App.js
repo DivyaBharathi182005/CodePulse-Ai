@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import './index.css';
 import { io } from 'socket.io-client';
 import ReactMarkdown from 'react-markdown';
 import { jsPDF } from "jspdf";
