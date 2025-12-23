@@ -7,8 +7,11 @@ import "jspdf-autotable";
 import { Trash2, Monitor, Download, X, Pencil, Eraser, Send, Moon, Sun, Sparkles, Play, Activity } from 'lucide-react';
 import './App.css'; 
 
-const socket = io(process.env.REACT_APP_SERVER_URL || "https://codepulse-ai-oavp.onrender.com");const roomId = "cse-project-room";
-
+// Locate this line near the top of App.js
+const socket = io("https://codepulse-ai-oavp.onrender.com", {
+    transports: ["websocket"],
+    withCredentials: true
+});
 function App() {
     // --- ALL ORIGINAL STATES PRESERVED ---
     const [userName, setUserName] = useState('');
