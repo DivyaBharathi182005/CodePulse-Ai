@@ -16,10 +16,12 @@ const groq = new Groq({
 const server = http.createServer(app);
 
 // Initialize Socket.io
+// Inside server.js
 const io = new Server(server, {
-    cors: {
-        origin: "https://codepulse-ai-theta.vercel.app", // Use your NEW Vercel URL here
-        methods: ["GET", "POST"]
+    cors: { 
+        origin: "https://codepulse-ai-theta.vercel.app", 
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -113,5 +115,6 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
 
 
