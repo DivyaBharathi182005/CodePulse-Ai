@@ -177,6 +177,10 @@ function App() {
             doc.setFont("courier", "normal");
             doc.text(code, 14, 55);
             doc.save(`Project_Report.pdf`);
+            // ADD THIS SECTION:
+            doc.text("OUTPUT:", 14, 150); // Move down the page
+             doc.setFont("courier", "bold");
+            doc.text(output, 14, 160);
         } else {
             const blob = new Blob([code], { type: "text/plain" });
             const a = document.createElement("a");
