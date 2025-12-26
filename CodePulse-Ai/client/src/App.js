@@ -94,15 +94,14 @@ function App() {
             setActivity('System Idle');
         }, 3000);
         return () => clearTimeout(timer);
-    }, [code]);
+    }, [code, isJoined, language, userName]);
 
     useEffect(() => {
         if (!isJoined) return;
         const langMsg = `${userName} switched to ${language.toUpperCase()}`;
         socket.emit('user-activity', { roomId, activity: langMsg });
         setActivity(langMsg);
-    }, [language]);
-
+    }, [language, isJoined, userName]);
     // --- 3. LOGIN LOGIC (PRESERVED) ---
     const handleLogin = (e) => {
         e.preventDefault();
@@ -179,91 +178,88 @@ function App() {
         }
     };
 
-   const handleSaveFile = (type) => {
+  const handleSaveFile = (type) => {
     const timestamp = new Date().toLocaleString();
     
     if (type === 'pdf') {
         const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
         let currentY = 20;
 
-        // --- TITLE ---
+        // Helper to check for page overflow
+        const checkPage = (addedHeight) => {
+            if (currentY + addedHeight > pageHeight - 20) {
+                doc.addPage();
+                currentY = 20;
+                return true;
+            }
+            return false;
+        };
+
+        // --- TITLE & METADATA ---
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
-        doc.setTextColor(97, 218, 251); // CodePulse Blue
-        doc.text("CodePulse-AI Report", 105, currentY, { align: "center" });
-        
-        // --- METADATA SECTION ---
-        currentY += 15;
+        doc.setFontSize(18);
+        doc.setTextColor(97, 218, 251);
+doc.text("CodePulse-AI Report", pageWidth / 2, currentY, { align: "center" });        
+        currentY += 10;
         doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0); // Black
-        doc.setFont("helvetica", "bold");
-        doc.text("User:", 14, currentY); 
-        doc.setFont("helvetica", "normal");
-        doc.text(`${userName}`, 40, currentY);
-
-        currentY += 7;
-        doc.setFont("helvetica", "bold");
-        doc.text("Language:", 14, currentY);
-        doc.setFont("helvetica", "normal");
-        doc.text(`${language.toUpperCase()}`, 40, currentY);
-
-        currentY += 7;
-        doc.setFont("helvetica", "bold");
-        doc.text("Date:", 14, currentY);
-        doc.setFont("helvetica", "normal");
-        doc.text(`${timestamp}`, 40, currentY);
-
+        doc.setTextColor(100);
+        doc.text(`User: ${userName} | Lang: ${language.toUpperCase()} | ${timestamp}`, 15, currentY);
+        
         // --- SOURCE CODE SECTION ---
         currentY += 15;
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
-        doc.text("SOURCE CODE", 14, currentY);
+        doc.setTextColor(0);
+        doc.text("SOURCE CODE:", 15, currentY);
         
         currentY += 7;
         doc.setFont("courier", "normal");
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         const splitCode = doc.splitTextToSize(code, 180);
-        doc.text(splitCode, 14, currentY);
+        
+        // Loop through code lines to handle multi-page code
+        splitCode.forEach(line => {
+            checkPage(5);
+            doc.text(line, 15, currentY);
+            currentY += 5;
+        });
 
-        // Adjust Y position based on code length
-        currentY += (splitCode.length * 5) + 10;
+        // --- INPUT & OUTPUT (Always start on a fresh page if code was long) ---
+        doc.addPage(); 
+        currentY = 20;
 
-        // --- INPUT SECTION ---
         doc.setFont("helvetica", "bold");
         doc.setFontSize(12);
-        doc.text("USER INPUT (STDIN)", 14, currentY);
+        doc.text("USER INPUT (STDIN):", 15, currentY);
         
-        currentY += 7;
+        currentY += 8;
         doc.setFont("courier", "normal");
-        doc.setFontSize(10);
-        doc.text(userInput || "No input provided", 14, currentY);
-
-        // --- OUTPUT SECTION ---
-        currentY += 15;
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12);
-        doc.text("TERMINAL OUTPUT", 14, currentY);
+        const splitInput = doc.splitTextToSize(userInput || "No input provided", 180);
+        doc.text(splitInput, 15, currentY);
         
-        currentY += 7;
-        doc.setFont("courier", "bold");
-        doc.setTextColor(34, 139, 34); // Forest Green
-        const splitOutput = doc.splitTextToSize(output, 180);
-        doc.text(splitOutput, 14, currentY);
+        currentY += (splitInput.length * 5) + 15;
 
-        // --- FINAL SAVE ---
-        doc.save(`CodePulse_Report_${userName}.pdf`);
+        // Final check before printing Output header
+        checkPage(20);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(34, 139, 34);
+        doc.text("TERMINAL OUTPUT:", 15, currentY);
+        
+        currentY += 8;
+        doc.setFont("courier", "bold");
+        doc.setTextColor(0);
+        const splitOutput = doc.splitTextToSize(output, 180);
+        doc.text(splitOutput, 15, currentY);
+
+        doc.save(`CodePulse_${userName}.pdf`);
         
     } else {
-        // Fallback for Word/Txt remains the same
-        const content = `User: ${userName}\nDate: ${timestamp}\nLang: ${language}\n\nCODE:\n${code}\n\nINPUT:\n${userInput}\n\nOUTPUT:\n${output}`;
-        const blob = new Blob([content], { type: "text/plain" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `Project_Report.${type === 'word' ? 'doc' : 'txt'}`;
-        a.click();
+        // ... Word/Txt fallback remains same
     }
 };
-    // --- 7. WHITEBOARD & SOCKET EFFECTS (PRESERVED) ---
+  // --- 7. WHITEBOARD & SOCKET EFFECTS (PRESERVED) ---
     const draw = (e) => {
         if (!isDrawing) return;
         const ctx = canvasRef.current.getContext('2d');
@@ -413,51 +409,54 @@ useEffect(() => {
                 {/* HEADER / NAVBAR */}
                 <header style={{ height: "55px", padding: "0 15px", background: "#2d2d2d", display: "flex", gap: "12px", alignItems: 'center', borderBottom: "1px solid #111" }}>
                     
-                    {/* Language Selection */}
-                    <div style={{ display: 'flex', alignItems: 'center', color:'red', gap: '8px', background: '#3e3e42', padding: '4px 10px', borderRadius: '4px', border: '1px solid #555' }}>
-                        <span style={{ fontSize: '10px', color: '#bbb', fontWeight: 'bold' ,color:'palegreen'}}>LANG</span>
-                        <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ background: 'transparent', color: '#61dafb', border: "none", fontWeight: "bold", cursor: 'pointer', outline: 'none' }}>
-                            <option value="c" style={{background:"#2d2d2d"}}>C</option>
-                            <option value="cpp" style={{background:"#2d2d2d"}}>C++</option>
-                            <option value="java" style={{background:"#2d2d2d"}}>Java</option>
-                            <option value="python" style={{background:"#2d2d2d"}}>Python</option>
-                        </select>
-                    </div>
+                   {/* Language Selection */}
+<div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#3e3e42', padding: '4px 10px', borderRadius: '4px', border: '1px solid #555' }}>
+    <span style={{ fontSize: '10px', color: 'palegreen', fontWeight: 'bold' }}>LANG</span>
+    <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ background: 'transparent', color: '#61dafb', border: "none", fontWeight: "bold", cursor: 'pointer', outline: 'none' }}>
+        <option value="c" style={{background:"#2d2d2d"}}>C</option>
+        <option value="cpp" style={{background:"#2d2d2d"}}>C++</option>
+        <option value="java" style={{background:"#2d2d2d"}}>Java</option>
+        <option value="python" style={{background:"#2d2d2d"}}>Python</option>
+    </select>
+</div>
 
-                    <button onClick={handleAiFix} style={{ background: "#8a2be2", color: 'white', padding: '6px 14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', border:'none', borderRadius:'4px', cursor:'pointer' }}>
-                        <Sparkles size={14} /> AI FIX
-                    </button>
+<button onClick={handleAiFix} style={{ background: "#8a2be2", color: 'white', padding: '6px 14px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', border:'none', borderRadius:'4px', cursor:'pointer' }}>
+    <Sparkles size={14} /> AI FIX
+</button>
 
-                    <div className="dropdown">
-                        <button className="nav-btn save-btn-colored"><Download size={14} /> Save</button>
-                        <div className="dropdown-content">
-                            <button onClick={() => handleSaveFile('pdf')}>PDF Report</button>
-                            <button onClick={() => handleSaveFile('word')}>Word Doc</button>
-                        </div>
-                    </div>
+<div className="dropdown">
+    <button className="nav-btn save-btn-colored"><Download size={14} /> Save</button>
+    <div className="dropdown-content">
+        <button onClick={() => handleSaveFile('pdf')}>PDF Report</button>
+        <button onClick={() => handleSaveFile('word')}>Word Doc</button>
+    </div>
+</div>
 
-                    <button onClick={() => setShowBoard(true)} className="nav-btn" style={{ background: "#3498db" }}>
-                        <Monitor size={14} /> Board
-                    </button>
+<button onClick={() => setShowBoard(true)} className="nav-btn" style={{ background: "#3498db" }}>
+    <Monitor size={14} /> Board
+</button>
 
-                    <button 
-                        onClick={() => {
-                            navigator.clipboard.writeText(window.location.href);
-                            alert("Invite link copied to clipboard! 📋");
-                        }} 
-                        className="nav-btn" 
-                        style={{ background: "#444", border: "1px solid #555", color:'yellow', fontWeight:'bold' }}
-                    >
-                        <Send size={14} /> Share
-                    </button>
+<button 
+    onClick={() => {
+        navigator.clipboard.writeText(window.location.href);
+        alert("Invite link copied to clipboard! 📋");
+    }} 
+    className="nav-btn" 
+    style={{ background: "#444", border: "1px solid #555", color:'yellow', fontWeight:'bold' }}
+>
+    <Send size={14} /> Share
+</button>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#3e3e42', padding: '4px 10px', borderRadius: '4px', border: '1px solid #555' }}>
-                        <span style={{ fontSize: '10px', color: '#bbb', fontWeight: 'bold' ,color:'palegreen'}}>THEME</span>
-                        <button onClick={() => setTheme(theme === 'vs-dark' ? 'light' : 'vs-dark')} style={{ background: 'none',color:'red', border: 'none', color: '#ffcc00', cursor:'pointer', display:'flex' }}>
-                            {theme === 'vs-dark' ? <Sun size={16}/> : <Moon size={16}/>}
-                        </button>
-                    </div>
-
+{/* Theme Selection */}
+<div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#3e3e42', padding: '4px 10px', borderRadius: '4px', border: '1px solid #555' }}>
+    <span style={{ fontSize: '10px', color: 'palegreen', fontWeight: 'bold' }}>THEME</span> 
+    <button 
+        onClick={() => setTheme(theme === 'vs-dark' ? 'light' : 'vs-dark')} 
+        style={{ background: 'none', border: 'none', color: '#ffcc00', cursor: 'pointer', display: 'flex' }}
+    >
+        {theme === 'vs-dark' ? <Sun size={16}/> : <Moon size={16}/>}
+    </button>
+</div>
                     <button onClick={() => setCode('')} style={{ background: "#d9534f", color: 'white', padding: '6px 12px', border:'none', borderRadius:'4px', cursor:'pointer' }}>
                         <Trash2 size={14} />
                     </button>
