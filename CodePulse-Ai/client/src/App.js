@@ -8,7 +8,8 @@ import { Trash2, Monitor, Download, X, Pencil, Eraser, Send, Moon, Sun, Sparkles
 import './App.css'; 
 
 // Locate this line near the top of App.js
-const socket = io("https://codepulse-ai-oavp.onrender.com", {
+// Change this line to use your specific Render URL
+const socket = io("https://codepulse-ai-ivx8.onrender.com", {
     transports: ["websocket"],
     withCredentials: true
 });
