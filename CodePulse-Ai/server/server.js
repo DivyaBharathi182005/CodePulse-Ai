@@ -82,7 +82,7 @@ io.on('connection', (socket) => {
 
             const aiMessage = chatCompletion.choices[0].message.content;
 
-            io.to(roomId).emit('receive-message', {
+            io.in(roomId).emit('receive-message', {
                 sender: "AI CONSULTANT 🤖",
                 message: aiMessage
             });
@@ -115,6 +115,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 5000;
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
 
 
 
