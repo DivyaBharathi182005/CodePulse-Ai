@@ -28,6 +28,7 @@ function App() {
     const [theme, setTheme] = useState('vs-dark');
     const [history, setHistory] = useState([]);
     const [showBoard, setShowBoard] = useState(false);
+    const [boardHistory, setBoardHistory] = useState([]);
     const [isDrawing, setIsDrawing] = useState(false);
     const [brushColor, setBrushColor] = useState('#000000');
     const [activity, setActivity] = useState('System Idle');
@@ -53,24 +54,33 @@ function App() {
     };
 
     // Apply Highlights Effect
-    useEffect(() => {
-        if (!editorRef.current || !monacoRef.current || !isJoined) return;
+  useEffect(() => {
+    // 1. Always check if the editor exists first
+    if (!editorRef.current || !monacoRef.current) return;
 
-        const newDecorations = Object.entries(userCursors).map(([name, line]) => ({
-            range: new monacoRef.current.Range(line, 1, line, 1),
-            options: {
-                isWholeLine: true,
-                className: 'remote-cursor-line',
-                glyphMarginClassName: 'remote-cursor-glyph',
-                hoverMessage: { value: `User: ${name} is here` }
-            }
-        }));
+    // 2. If we aren't joined, CLEAR the decorations and stop
+    if (!isJoined) {
+        decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, []);
+        return;
+    }
 
-        decorationsRef.current = editorRef.current.deltaDecorations(
-            decorationsRef.current, 
-            newDecorations
-        );
-    }, [userCursors]);
+    // 3. Otherwise, map the cursors to highlights
+    const newDecorations = Object.entries(userCursors).map(([name, line]) => ({
+        range: new monacoRef.current.Range(line, 1, line, 1),
+        options: {
+            isWholeLine: true,
+            className: 'remote-cursor-line',
+            glyphMarginClassName: 'remote-cursor-glyph',
+            hoverMessage: { value: `User: ${name} is here` }
+        }
+    }));
+
+    // 4. Update the editor layers
+    decorationsRef.current = editorRef.current.deltaDecorations(
+        decorationsRef.current, 
+        newDecorations
+    );
+}, [userCursors, isJoined]); // Added isJoined to dependencies
 
     // --- 2. GLOBAL ACTIVITY EMISSION (PRESERVED) ---
     useEffect(() => {
@@ -169,30 +179,90 @@ function App() {
         }
     };
 
-    const handleSaveFile = (type) => {
-        const timestamp = new Date().toLocaleString();
-        if (type === 'pdf') {
-            const doc = new jsPDF();
-            doc.setFont("helvetica", "bold");
-            doc.text("PROJECT REPORT", 105, 20, { align: "center" });
-            doc.setFontSize(10);
-            doc.text(`User: ${userName} | Lang: ${language} | Date: ${timestamp}`, 14, 30);
-            doc.text("CODE:", 14, 45);
-            doc.setFont("courier", "normal");
-            doc.text(code, 14, 55);
-            doc.save(`Project_Report.pdf`);
-            doc.text("OUTPUT:", 14, 150); // Move down the page
-             doc.setFont("courier", "bold");
-            doc.text(output, 14, 160);
-        } else {
-            const blob = new Blob([code], { type: "text/plain" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `code.${type === 'word' ? 'doc' : 'txt'}`;
-            a.click();
-        }
-    };
+   const handleSaveFile = (type) => {
+    const timestamp = new Date().toLocaleString();
+    
+    if (type === 'pdf') {
+        const doc = new jsPDF();
+        let currentY = 20;
 
+        // --- TITLE ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(97, 218, 251); // CodePulse Blue
+        doc.text("CodePulse-AI Report", 105, currentY, { align: "center" });
+        
+        // --- METADATA SECTION ---
+        currentY += 15;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0); // Black
+        doc.setFont("helvetica", "bold");
+        doc.text("User:", 14, currentY); 
+        doc.setFont("helvetica", "normal");
+        doc.text(`${userName}`, 40, currentY);
+
+        currentY += 7;
+        doc.setFont("helvetica", "bold");
+        doc.text("Language:", 14, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${language.toUpperCase()}`, 40, currentY);
+
+        currentY += 7;
+        doc.setFont("helvetica", "bold");
+        doc.text("Date:", 14, currentY);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${timestamp}`, 40, currentY);
+
+        // --- SOURCE CODE SECTION ---
+        currentY += 15;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("SOURCE CODE", 14, currentY);
+        
+        currentY += 7;
+        doc.setFont("courier", "normal");
+        doc.setFontSize(10);
+        const splitCode = doc.splitTextToSize(code, 180);
+        doc.text(splitCode, 14, currentY);
+
+        // Adjust Y position based on code length
+        currentY += (splitCode.length * 5) + 10;
+
+        // --- INPUT SECTION ---
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("USER INPUT (STDIN)", 14, currentY);
+        
+        currentY += 7;
+        doc.setFont("courier", "normal");
+        doc.setFontSize(10);
+        doc.text(userInput || "No input provided", 14, currentY);
+
+        // --- OUTPUT SECTION ---
+        currentY += 15;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("TERMINAL OUTPUT", 14, currentY);
+        
+        currentY += 7;
+        doc.setFont("courier", "bold");
+        doc.setTextColor(34, 139, 34); // Forest Green
+        const splitOutput = doc.splitTextToSize(output, 180);
+        doc.text(splitOutput, 14, currentY);
+
+        // --- FINAL SAVE ---
+        doc.save(`CodePulse_Report_${userName}.pdf`);
+        
+    } else {
+        // Fallback for Word/Txt remains the same
+        const content = `User: ${userName}\nDate: ${timestamp}\nLang: ${language}\n\nCODE:\n${code}\n\nINPUT:\n${userInput}\n\nOUTPUT:\n${output}`;
+        const blob = new Blob([content], { type: "text/plain" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `Project_Report.${type === 'word' ? 'doc' : 'txt'}`;
+        a.click();
+    }
+};
     // --- 7. WHITEBOARD & SOCKET EFFECTS (PRESERVED) ---
     const draw = (e) => {
         if (!isDrawing) return;
@@ -203,27 +273,77 @@ function App() {
         ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
         ctx.stroke();
     };
+    // ADD THESE TWO FUNCTIONS HERE:
+const saveBoard = () => {
+    const canvas = canvasRef.current;
+    const image = canvas.toDataURL("image/png");
+    
+    // Download to PC
+    const link = document.createElement('a');
+    link.download = `Whiteboard_${new Date().getTime()}.png`;
+    link.href = image;
+    link.click();
 
-    useEffect(() => {
-        if (!isJoined) return;
-        socket.on('receive-message', (msg) => setMessages(prev => [...prev, msg]));
-        socket.on('receive-code', (newCode) => setCode(newCode));
-        socket.on('user-list', (list) => setOnlineUsers(list));
-        socket.on('activity-update', (data) => setActivity(data.activity));
-        
-        // Listen for team cursors
-        socket.on('user-cursor-update', ({ userName: remoteUser, lineNumber }) => {
-            if (remoteUser !== userName) {
-                setUserCursors(prev => ({ ...prev, [remoteUser]: lineNumber }));
-            }
+    // Add to Sidebar History (limit to 5)
+    setBoardHistory(prev => [image, ...prev].slice(0, 5));
+};
+
+const clearBoard = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+  // --- UPDATED SOCKET LOGIC ---
+useEffect(() => {
+    if (!isJoined) return;
+
+    // 1. MESSAGING
+    socket.on('receive-message', (msg) => {
+        setMessages(prev => [...prev, msg]);
+    });
+
+    // 2. CODE SYNC (Optimized to prevent cursor flickers)
+    socket.on('receive-code', (newCode) => {
+        setCode((prevCode) => {
+            if (prevCode !== newCode) return newCode;
+            return prevCode;
         });
+    });
 
-        return () => {
-            socket.off('receive-message'); socket.off('receive-code');
-            socket.off('user-list'); socket.off('activity-update');
-            socket.off('user-cursor-update');
-        };
-    }, [isJoined, userName]);
+    // 3. TEAM LIST & ACTIVITY
+    socket.on('user-list', (list) => setOnlineUsers(list));
+    socket.on('activity-update', (data) => setActivity(data.activity));
+
+    // 4. CURSOR TRACKING
+    socket.on('user-cursor-update', ({ userName: remoteUser, lineNumber }) => {
+        if (remoteUser !== userName) {
+            setUserCursors(prev => ({ ...prev, [remoteUser]: lineNumber }));
+        }
+    });
+
+    // 5. DISCONNECT CLEANUP
+    socket.on('user-disconnected', (disconnectedUser) => {
+        setUserCursors(prev => {
+            const newCursors = { ...prev };
+            delete newCursors[disconnectedUser];
+            return newCursors;
+        });
+        setMessages(prev => [...prev, { 
+            sender: "SYSTEM", 
+            message: `${disconnectedUser} has left the workspace.` 
+        }]);
+    });
+
+    return () => {
+        socket.off('receive-message');
+        socket.off('receive-code');
+        socket.off('user-list');
+        socket.off('activity-update');
+        socket.off('user-cursor-update');
+        socket.off('user-disconnected');
+    };
+}, [isJoined, userName]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -355,10 +475,12 @@ function App() {
                         language={language} 
                         value={code} 
                         onMount={handleEditorDidMount} 
-                        onChange={(v) => { 
-                            setCode(v); 
-                            socket.emit('code-change', { roomId, code: v }); 
-                        }} 
+                      onChange={(v) => { 
+    if (v !== code) { // Prevents the editor from resetting itself
+        setCode(v); 
+        socket.emit('code-change', { roomId, code: v }); 
+    }
+}}
                     />
                 </div>
 
@@ -413,20 +535,58 @@ function App() {
                 </div>
             </div>
 
-            {/* WHITEBOARD MODAL */}
-            {showBoard && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                    <div style={{ background: '#fff', padding: '20px', borderRadius: '12px' }}>
-                        <div style={{ display: 'flex', gap: '15px', marginBottom: '15px' }}>
-                            <button onClick={() => setBrushColor('#000')}><Pencil size={20}/></button>
-                            <button onClick={() => setBrushColor('#fff')}><Eraser size={20}/></button>
-                            <input type="color" value={brushColor} onChange={(e) => setBrushColor(e.target.value)} />
-                            <button onClick={() => setShowBoard(false)} style={{ marginLeft: 'auto', background: '#d9534f', color: 'white', border:'none', padding:'5px 10px', borderRadius: '4px' }}><X /></button>
-                        </div>
-                        <canvas ref={canvasRef} width="800" height="500" onMouseDown={() => { setIsDrawing(true); canvasRef.current.getContext('2d').beginPath(); }} onMouseMove={draw} onMouseUp={() => setIsDrawing(false)} style={{ border: '1px solid #ddd', background: 'white' }} />
-                    </div>
+{/* WHITEBOARD MODAL - LINE 385 */}
+{showBoard && (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 100, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', display: 'flex', gap: '20px' }}>
+            
+            {/* LEFT: DRAWING AREA */}
+            <div>
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', alignItems: 'center' }}>
+                    <button onClick={() => setBrushColor('#000')}><Pencil size={20}/></button>
+                    <button onClick={() => setBrushColor('#fff')}><Eraser size={20}/></button>
+                    <input type="color" value={brushColor} onChange={(e) => setBrushColor(e.target.value)} />
+                    
+                    <div style={{ borderLeft: '1px solid #ddd', height: '24px', margin: '0 10px' }} />
+                    
+                    <button onClick={saveBoard} style={{ background: '#4caf50', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <Download size={16} /> Save Snapshot
+                    </button>
+                    <button onClick={clearBoard} style={{ background: '#f44336', color: 'white', border: 'none', padding: '5px 15px', borderRadius: '4px', cursor: 'pointer' }}>
+                        Clear
+                    </button>
+                    
+                    <button onClick={() => setShowBoard(false)} style={{ marginLeft: 'auto', background: '#333', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px' }}><X /></button>
                 </div>
-            )}
+
+                <canvas 
+                    ref={canvasRef} 
+                    width="700" height="450" 
+                    onMouseDown={() => { setIsDrawing(true); canvasRef.current.getContext('2d').beginPath(); }} 
+                    onMouseMove={draw} 
+                    onMouseUp={() => setIsDrawing(false)} 
+                    style={{ border: '2px solid #333', background: 'white', cursor: 'crosshair' }} 
+                />
+            </div>
+
+            {/* RIGHT: HISTORY SIDEBAR */}
+            <div style={{ width: '150px', borderLeft: '1px solid #ddd', paddingLeft: '20px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#333' }}>Recent Snaps</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {boardHistory.map((img, idx) => (
+                        <div key={idx} style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden', cursor: 'pointer' }} onClick={() => {
+                            const imgObj = new Image();
+                            imgObj.src = img;
+                            imgObj.onload = () => canvasRef.current.getContext('2d').drawImage(imgObj, 0, 0);
+                        }}>
+                            <img src={img} alt="history" style={{ width: '100%', display: 'block' }} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    </div>
+)}
         </div>
     );
     
