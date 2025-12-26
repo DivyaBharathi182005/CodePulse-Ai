@@ -1,4 +1,35 @@
-/* --- TOPBAR & DROPDOWN STYLES --- */
+/* --- TOPBAR & NAV BUTTONS --- */
+.nav-btn {
+  background: #444;
+  color: white;
+  padding: 6px 12px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+  background: #555;
+  border-color: #61dafb;
+}
+
+.save-btn-colored {
+  background: #2e7d32 !important; /* Elegant Forest Green */
+  border: 1px solid #388e3c !important;
+  font-weight: bold;
+}
+
+.save-btn-colored:hover {
+  background: #388e3c !important;
+  box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+}
+
+/* --- DROPDOWN LOGIC --- */
 .dropdown {
   position: relative;
   display: inline-block;
@@ -7,14 +38,15 @@
 .dropdown-content {
   display: none;
   position: absolute;
-  background-color: #333;
-  min-width: 140px; /* Slightly wider for better text fit */
-  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.4);
-  z-index: 1000; /* Increased to stay above the Monaco Editor */
+  background-color: #2d2d2d;
+  min-width: 140px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+  z-index: 1000; /* Stays above editor */
   border-radius: 4px;
   top: 100%;
   left: 0;
   border: 1px solid #444;
+  overflow: hidden;
 }
 
 .dropdown:hover .dropdown-content {
@@ -24,7 +56,6 @@
 .dropdown-content button {
   color: white;
   padding: 10px 15px;
-  text-decoration: none;
   display: block;
   background: none;
   border: none;
@@ -40,55 +71,36 @@
   color: #61dafb;
 }
 
-.nav-btn {
-  background: #444;
-  color: white;
-  padding: 6px 12px;
-  border: 1px solid #555;
-  border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.nav-btn:hover {
-  background: #555;
-}
-
-/* --- REMOTE CURSOR / COLLABORATION STYLES --- */
-/* Highlights the entire line for the teammate */
+/* --- COLLABORATION: REMOTE CURSORS --- */
+/* Highlights the line in the editor */
 .remote-cursor-line {
-    background: rgba(97, 218, 251, 0.15) !important;
-    border-left: 3px solid #61dafb !important;
+  background: rgba(97, 218, 251, 0.2) !important;
+  border-left: 3px solid #61dafb !important;
 }
 
-/* The small bar/glyph in the line-number gutter */
+/* The vertical bar in the line-number gutter */
 .remote-cursor-glyph {
-    background: #61dafb !important;
-    width: 4px !important;
-    margin-left: 2px;
-    border-radius: 2px;
-}/* Unique color for the Save button to make it stand out */
-.save-btn-colored {
-    background: #2e7d32 !important; /* Elegant Forest Green */
-    border: 1px solid #388e3c !important;
-    font-weight: bold;
+  background: #61dafb !important;
+  width: 5px !important;
+  margin-left: 2px;
+  border-radius: 2px;
 }
 
-.save-btn-colored:hover {
-    background: #388e3c !important;
-    box-shadow: 0 0 8px rgba(76, 175, 80, 0.4);
+/* --- GLOBAL SCROLLBARS --- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* Ensure the Theme box looks consistent with buttons */
-.theme-box {
-  
-    transition: all 0.2s ease;
+::-webkit-scrollbar-track {
+  background: #1e1e1e;
 }
 
-.theme-box:hover {
-    border-color: #61dafb;
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
