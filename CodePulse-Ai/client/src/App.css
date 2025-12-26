@@ -104,3 +104,14 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+@media print {
+  .editor-container, .output-container {
+    width: 100% !important;
+    display: block !important;
+    color: black !important;
+    background: white !important;
+    border: 1px solid #ccc !important;
+    margin-bottom: 20px;
+    page-break-inside: avoid;
+  }
+}
