@@ -14,6 +14,7 @@ const socket = io("https://codepulse-ai-oavp.onrender.com", {
 });
 function App() {
     // --- ALL ORIGINAL STATES PRESERVED ---
+    const roomId = "main-room"; // ADD THIS LINE
     const [userName, setUserName] = useState('');
     const [isJoined, setIsJoined] = useState(false);
     const [code, setCode] = useState('// Welcome to CodePulse-AI\n#include <stdio.h>\n\nint main() {\n    printf("Hello World");\n    return 0;\n}');
