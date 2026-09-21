@@ -122,7 +122,6 @@ function App() {
         e.preventDefault();
         if (userName.trim()) {
             setIsJoined(true);
-            socket.emit('join-room', { roomId, userName });
         }
     };
 
@@ -371,6 +370,8 @@ useEffect(() => {
             message: `${disconnectedUser} has left the workspace.` 
         }]);
     });
+
+    socket.emit('join-room', { roomId, userName });
 
     return () => {
         socket.off('receive-message');
