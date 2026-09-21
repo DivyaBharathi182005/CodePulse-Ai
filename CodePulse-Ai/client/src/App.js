@@ -7,9 +7,10 @@ import "jspdf-autotable";
 import { Trash2, Monitor, Download, X, Pencil, Eraser, Send, Moon, Sun, Sparkles, Play, Activity } from 'lucide-react';
 import './App.css'; 
 
-// Locate this line near the top of App.js
-// Change this line to use your specific Render URL
-const socket = io("https://codepulse-ai-ivx8.onrender.com", {
+// Set REACT_APP_SERVER_URL in your deployment platform's env settings
+// (e.g. Vercel) to point at your own Render/Railway backend URL.
+const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+const socket = io(SERVER_URL, {
     transports: ["websocket"],
     withCredentials: true
 });
@@ -35,7 +36,8 @@ function App() {
     const [activity, setActivity] = useState('System Idle');
 
     // --- NEW STATES FOR CURSOR HIGHLIGHTING ---
-    const [userCursors, setUserCursors] = useState({}); 
+    const [userCursors, setUserCursors] = useState({});
+    const [aiErrorLine, setAiErrorLine] = useState(null);
     const editorRef = useRef(null);
     const monacoRef = useRef(null);
     const decorationsRef = useRef([]);
@@ -66,7 +68,7 @@ function App() {
     }
 
     // 3. Otherwise, map the cursors to highlights
-    const newDecorations = Object.entries(userCursors).map(([name, line]) => ({
+    const cursorDecorations = Object.entries(userCursors).map(([name, line]) => ({
         range: new monacoRef.current.Range(line, 1, line, 1),
         options: {
             isWholeLine: true,
@@ -76,12 +78,24 @@ function App() {
         }
     }));
 
+    // AI-identified error line, mapped from the debugging response onto the
+    // actual source line rather than left as plain chat text.
+    const aiDecoration = aiErrorLine ? [{
+        range: new monacoRef.current.Range(aiErrorLine, 1, aiErrorLine, 1),
+        options: {
+            isWholeLine: true,
+            className: 'ai-error-line',
+            glyphMarginClassName: 'ai-error-glyph',
+            hoverMessage: { value: `AI flagged an issue on this line` }
+        }
+    }] : [];
+
     // 4. Update the editor layers
     decorationsRef.current = editorRef.current.deltaDecorations(
         decorationsRef.current, 
-        newDecorations
+        [...cursorDecorations, ...aiDecoration]
     );
-}, [userCursors, isJoined]); // Added isJoined to dependencies
+}, [userCursors, aiErrorLine, isJoined]);
 
     // --- 2. GLOBAL ACTIVITY EMISSION (PRESERVED) ---
     useEffect(() => {
@@ -112,43 +126,50 @@ function App() {
         }
     };
 
+    const handleLanguageChange = (event) => {
+        const nextLanguage = event.target.value;
+        setLanguage(nextLanguage);
+        socket.emit('language-change', { roomId, language: nextLanguage });
+    };
+
     // --- 4. EXECUTION LOGIC (PRESERVED) ---
     const handleRunCode = async () => {
         setIsRunning(true);
+        setAiErrorLine(null);
         const runMsg = `${userName} is Running Code...`;
         socket.emit('user-activity', { roomId, activity: runMsg });
         setActivity(runMsg);
 
         setOutput("Compiling & Running...");
         const timestamp = new Date().toLocaleTimeString();
-        setHistory(prev => [{ time: timestamp, lang: language, savedCode: code }, ...prev].slice(0, 10));
-
-        const languageMap = {
-            'c': { name: 'c', version: '10.2.0' },
-            'cpp': { name: 'cpp', version: '10.2.0' },
-            'python': { name: 'python', version: '3.10.0' },
-            'java': { name: 'java', version: '15.0.2' }
-        };
+        const historyEntry = { time: timestamp, lang: language, savedCode: code };
 
         try {
-            const response = await fetch("https://emkc.org/api/v2/piston/execute", {
+            const response = await fetch(`${SERVER_URL}/api/execute`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    language: languageMap[language].name,
-                    version: languageMap[language].version,
-                    files: [{ content: code }],
-                    stdin: userInput,
-                }),
+                body: JSON.stringify({ language, code, stdin: userInput }),
             });
             const data = await response.json();
-            if (data.run) {
-                const result = data.run.stderr ? `${data.run.stderr}\n${data.run.stdout}` : data.run.stdout;
-                setOutput(result || "Code executed successfully.");
-                socket.emit('user-activity', { roomId, activity: `${userName} finished execution` });
+
+            let nextOutput;
+            if (data.success) {
+                nextOutput = data.stdout || "Code executed successfully.";
+            } else if (data.stage === 'compile') {
+                nextOutput = `Compile Error:\n${data.stderr}`;
+            } else if (data.stage === 'runtime') {
+                nextOutput = `Runtime Error:\n${data.stderr}${data.stdout ? '\n' + data.stdout : ''}`;
+            } else {
+                // validation / timeout / infrastructure failure
+                nextOutput = `Error: ${data.message || 'Execution failed.'}`;
             }
+            setOutput(nextOutput);
+            socket.emit('run-result', { roomId, output: nextOutput, historyEntry });
+            socket.emit('user-activity', { roomId, activity: `${userName} finished execution` });
         } catch (error) {
-            setOutput("Error: Connection failed.");
+            const nextOutput = "Error: Could not reach the execution server.";
+            setOutput(nextOutput);
+            socket.emit('run-result', { roomId, output: nextOutput, historyEntry });
         } finally {
             setIsRunning(false);
         }
@@ -157,15 +178,14 @@ function App() {
     // --- 5. AI LOGIC (PRESERVED) ---
     const handleAiFix = () => {
         if (!output || output === 'Terminal ready...') return alert("Run code first!");
-        setMessages(prev => [...prev, { sender: "SYSTEM", message: "*AI is analyzing for " + userName + "...*" }]);
-        socket.emit('ask-ai-specific', { roomId, question: "Fix my code", code, language, error: output });
+        socket.emit('ask-ai-specific', { roomId, userName, question: "Fix my code", code, language, error: output });
     };
 
     const askQuestion = (e) => {
         e.preventDefault();
         const query = e.target.aiQuery?.value || ""; 
         if (!query.trim()) return;
-        socket.emit('ask-ai-specific', { roomId, question: query, code, language, error: output });
+        socket.emit('ask-ai-specific', { roomId, userName, question: query, code, language, error: output });
         e.target.reset(); 
     };
 
@@ -300,12 +320,27 @@ useEffect(() => {
         setMessages(prev => [...prev, msg]);
     });
 
+    socket.on('room-state', ({ output: roomOutput, history: roomHistory, messages: roomMessages }) => {
+        if (roomOutput) setOutput(roomOutput);
+        if (Array.isArray(roomHistory)) setHistory(roomHistory);
+        if (Array.isArray(roomMessages)) setMessages(roomMessages);
+    });
+
     // 2. CODE SYNC (Optimized to prevent cursor flickers)
     socket.on('receive-code', (newCode) => {
         setCode((prevCode) => {
             if (prevCode !== newCode) return newCode;
             return prevCode;
         });
+    });
+
+    socket.on('language-sync', (nextLanguage) => {
+        setLanguage(nextLanguage);
+    });
+
+    socket.on('execution-update', ({ output: nextOutput, history: nextHistory }) => {
+        setOutput(nextOutput);
+        setHistory(nextHistory);
     });
 
     // 3. TEAM LIST & ACTIVITY
@@ -317,6 +352,11 @@ useEffect(() => {
         if (remoteUser !== userName) {
             setUserCursors(prev => ({ ...prev, [remoteUser]: lineNumber }));
         }
+    });
+
+    // 4b. AI DEBUGGING -> SOURCE LINE MAPPING
+    socket.on('ai-error-location', ({ line }) => {
+        setAiErrorLine(line);
     });
 
     // 5. DISCONNECT CLEANUP
@@ -334,13 +374,17 @@ useEffect(() => {
 
     return () => {
         socket.off('receive-message');
+        socket.off('room-state');
         socket.off('receive-code');
+        socket.off('language-sync');
+        socket.off('execution-update');
         socket.off('user-list');
         socket.off('activity-update');
         socket.off('user-cursor-update');
+        socket.off('ai-error-location');
         socket.off('user-disconnected');
     };
-}, [isJoined, userName]);
+    }, [isJoined, userName]);
 
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -413,7 +457,7 @@ useEffect(() => {
                    {/* Language Selection */}
 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#3e3e42', padding: '4px 10px', borderRadius: '4px', border: '1px solid #555' }}>
     <span style={{ fontSize: '10px', color: 'palegreen', fontWeight: 'bold' }}>LANG</span>
-    <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ background: 'transparent', color: '#61dafb', border: "none", fontWeight: "bold", cursor: 'pointer', outline: 'none' }}>
+    <select value={language} onChange={handleLanguageChange} style={{ background: 'transparent', color: '#61dafb', border: "none", fontWeight: "bold", cursor: 'pointer', outline: 'none' }}>
         <option value="c" style={{background:"#2d2d2d"}}>C</option>
         <option value="cpp" style={{background:"#2d2d2d"}}>C++</option>
         <option value="java" style={{background:"#2d2d2d"}}>Java</option>
