@@ -218,6 +218,16 @@ app.post('/api/execute', async (req, res) => {
         });
     }
 
+    const looksLikeCCode = /#include\s*<stdio\.h>|\bprintf\s*\(/.test(code);
+    const looksLikeCppCode = /#include\s*<iostream>|\bstd::cout\b|\busing\s+namespace\s+std\b/.test(code);
+    if (language === 'cpp' && looksLikeCCode && !looksLikeCppCode) {
+        return res.status(400).json({
+            success: false,
+            stage: 'validation',
+            message: 'C code detected. Select C for printf/stdio.h, or update the code to use C++ such as iostream and cout.',
+        });
+    }
+
     console.log(`[execute] lang=${language} | codeLen=${code.length}`);
 
     try {
