@@ -9,7 +9,10 @@ import './App.css';
 
 // Set REACT_APP_SERVER_URL in your deployment platform's env settings
 // (e.g. Vercel) to point at your own Render/Railway backend URL.
-const SERVER_URL = process.env.REACT_APP_SERVER_URL || "http://localhost:5000";
+const SERVER_URL = (process.env.REACT_APP_SERVER_URL || "http://localhost:5000")
+    .trim()
+    .split(/\s+/)[0]
+    .replace(/\/+$/, '');
 const socket = io(SERVER_URL, {
     transports: ["websocket"],
     withCredentials: true
