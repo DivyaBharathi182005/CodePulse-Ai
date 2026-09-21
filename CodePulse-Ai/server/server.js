@@ -19,6 +19,7 @@ const app = express();
 // Set CLIENT_URL in your server's environment (e.g. Render dashboard) to your Vercel URL.
 const allowedOrigins = [
     process.env.CLIENT_URL,
+    "https://code-pulse-ai-kappa.vercel.app",
     "http://localhost:3000"
 ].filter(Boolean);
 
