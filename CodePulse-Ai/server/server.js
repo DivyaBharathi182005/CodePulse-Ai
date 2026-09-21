@@ -105,14 +105,14 @@ async function executeLocally({ language, code, stdin }) {
             binaryFile = 'main.exe';
             compileCommand = 'gcc';
             compileArgs = [sourceFile, '-o', binaryFile];
-            runCommand = binaryFile;
+            runCommand = path.join(tempDir, binaryFile);
             runArgs = [];
         } else if (language === 'cpp') {
             sourceFile = 'main.cpp';
             binaryFile = 'main.exe';
             compileCommand = 'g++';
             compileArgs = [sourceFile, '-o', binaryFile];
-            runCommand = binaryFile;
+            runCommand = path.join(tempDir, binaryFile);
             runArgs = [];
         } else if (language === 'java') {
             sourceFile = 'Main.java';
